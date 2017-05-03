@@ -2,9 +2,9 @@
 <Root MajorVersion="0" MinorVersion="33">
   <CompositeFile CompositeFileTopName="design_1" CanBeSetAsTop="false" CanDisplayChildGraph="true">
     <Description>Composite Fileset</Description>
-    <Generation Name="SYNTHESIS" State="GENERATED" Timestamp="1490964018"/>
-    <Generation Name="IMPLEMENTATION" State="GENERATED" Timestamp="1490964018"/>
-    <Generation Name="SIMULATION" State="GENERATED" Timestamp="1490964018"/>
+    <Generation Name="SYNTHESIS" State="GENERATED" Timestamp="1493814890"/>
+    <Generation Name="IMPLEMENTATION" State="GENERATED" Timestamp="1493814890"/>
+    <Generation Name="SIMULATION" State="GENERATED" Timestamp="1493814890"/>
     <FileCollection Name="SOURCES" Type="SOURCES">
       <File Name="ip\design_1_processing_system7_0_0\design_1_processing_system7_0_0.xci" Type="IP">
         <Instance HierarchyPath="processing_system7_0"/>
@@ -14,11 +14,10 @@
         <UsedIn Val="IMPLEMENTATION"/>
         <UsedIn Val="SIMULATION"/>
       </File>
-      <File Name="hdl\design_1.v" Type="Verilog">
+      <File Name="hdl\design_1.vhd" Type="VHDL">
         <Properties IsEditable="false" IsVisible="true" Timestamp="0" IsTrackable="false" IsStatusTracked="false"/>
         <Library Name="xil_defaultlib"/>
         <UsedIn Val="SYNTHESIS"/>
-        <UsedIn Val="IMPLEMENTATION"/>
         <UsedIn Val="SIMULATION"/>
       </File>
       <File Name="design_1_ooc.xdc" Type="XDC">

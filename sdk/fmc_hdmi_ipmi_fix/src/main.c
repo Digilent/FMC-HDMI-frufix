@@ -34,6 +34,12 @@ int main()
 		return XST_SUCCESS;
 	}
 
+	if (!fIsCardPresent())
+	{
+		xil_printf("\r\nNo card is present in slot J1, exiting.");
+		return 1;
+	}
+
 	int fUpgrade = fUpgradeNeeded(manufDate, serialNum);
 	if (fUpgrade == XST_NO_DATA || fUpgrade == XST_FAILURE)
 	{

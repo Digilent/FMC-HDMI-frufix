@@ -51,70 +51,68 @@ if { $list_projs eq "" } {
 # CHANGE DESIGN NAME HERE
 set design_name design_1
 
-# If you do not already have an existing IP Integrator design open,
-# you can create a design using the following command:
-#    create_bd_design $design_name
+# This script was generated for a remote BD. To create a non-remote design,
+# change the variable <run_remote_bd_flow> to <0>.
 
-# Creating design if needed
-set errMsg ""
-set nRet 0
+set run_remote_bd_flow 1
+if { $run_remote_bd_flow == 1 } {
+  # Set the reference directory for source file relative paths (by default 
+  # the value is script directory path)
+  set origin_dir ./bd
 
-set cur_design [current_bd_design -quiet]
-set list_cells [get_bd_cells -quiet]
+  # Use origin directory path location variable, if specified in the tcl shell
+  if { [info exists ::origin_dir_loc] } {
+     set origin_dir $::origin_dir_loc
+  }
 
-if { ${design_name} eq "" } {
-   # USE CASES:
-   #    1) Design_name not set
+  set str_bd_folder [file normalize ${origin_dir}]
+  set str_bd_filepath ${str_bd_folder}/${design_name}/${design_name}.bd
 
-   set errMsg "Please set the variable <design_name> to a non-empty value."
-   set nRet 1
+  # Check if remote design exists on disk
+  if { [file exists $str_bd_filepath ] == 1 } {
+     catch {common::send_msg_id "BD_TCL-110" "ERROR" "The remote BD file path <$str_bd_filepath> already exists!"}
+     common::send_msg_id "BD_TCL-008" "INFO" "To create a non-remote BD, change the variable <run_remote_bd_flow> to <0>."
+     common::send_msg_id "BD_TCL-009" "INFO" "Also make sure there is no design <$design_name> existing in your current project."
 
-} elseif { ${cur_design} ne "" && ${list_cells} eq "" } {
-   # USE CASES:
-   #    2): Current design opened AND is empty AND names same.
-   #    3): Current design opened AND is empty AND names diff; design_name NOT in project.
-   #    4): Current design opened AND is empty AND names diff; design_name exists in project.
+     return 1
+  }
 
-   if { $cur_design ne $design_name } {
-      common::send_msg_id "BD_TCL-001" "INFO" "Changing value of <design_name> from <$design_name> to <$cur_design> since current design is empty."
-      set design_name [get_property NAME $cur_design]
-   }
-   common::send_msg_id "BD_TCL-002" "INFO" "Constructing design in IPI design <$cur_design>..."
+  # Check if design exists in memory
+  set list_existing_designs [get_bd_designs -quiet $design_name]
+  if { $list_existing_designs ne "" } {
+     catch {common::send_msg_id "BD_TCL-111" "ERROR" "The design <$design_name> already exists in this project! Will not create the remote BD <$design_name> at the folder <$str_bd_folder>."}
 
-} elseif { ${cur_design} ne "" && $list_cells ne "" && $cur_design eq $design_name } {
-   # USE CASES:
-   #    5) Current design opened AND has components AND same names.
+     common::send_msg_id "BD_TCL-010" "INFO" "To create a non-remote BD, change the variable <run_remote_bd_flow> to <0> or please set a different value to variable <design_name>."
 
-   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
-   set nRet 1
-} elseif { [get_files -quiet ${design_name}.bd] ne "" } {
-   # USE CASES: 
-   #    6) Current opened design, has components, but diff names, design_name exists in project.
-   #    7) No opened design, design_name exists in project.
+     return 1
+  }
 
-   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
-   set nRet 2
+  # Check if design exists on disk within project
+  set list_existing_designs [get_files */${design_name}.bd]
+  if { $list_existing_designs ne "" } {
+     catch {common::send_msg_id "BD_TCL-112" "ERROR" "The design <$design_name> already exists in this project at location:
+    $list_existing_designs"}
+     catch {common::send_msg_id "BD_TCL-113" "ERROR" "Will not create the remote BD <$design_name> at the folder <$str_bd_folder>."}
 
+     common::send_msg_id "BD_TCL-011" "INFO" "To create a non-remote BD, change the variable <run_remote_bd_flow> to <0> or please set a different value to variable <design_name>."
+
+     return 1
+  }
+
+  # Now can create the remote BD
+  # NOTE - usage of <-dir> will create <$str_bd_folder/$design_name/$design_name.bd>
+  create_bd_design -dir $str_bd_folder $design_name
 } else {
-   # USE CASES:
-   #    8) No opened design, design_name not in project.
-   #    9) Current opened design, has components, but diff names, design_name not in project.
 
-   common::send_msg_id "BD_TCL-003" "INFO" "Currently there is no design <$design_name> in project, so creating one..."
+  # Create regular design
+  if { [catch {create_bd_design $design_name} errmsg] } {
+     common::send_msg_id "BD_TCL-012" "INFO" "Please set a different value to variable <design_name>."
 
-   create_bd_design $design_name
-
-   common::send_msg_id "BD_TCL-004" "INFO" "Making design <$design_name> as current_bd_design."
-   current_bd_design $design_name
-
+     return 1
+  }
 }
 
-common::send_msg_id "BD_TCL-005" "INFO" "Currently the variable <design_name> is equal to \"$design_name\"."
-
-if { $nRet != 0 } {
-   catch {common::send_msg_id "BD_TCL-114" "ERROR" $errMsg}
-   return $nRet
-}
+current_bd_design $design_name
 
 ##################################################################
 # DESIGN PROCs
@@ -174,7 +172,7 @@ CONFIG.PCW_ACT_FPGA2_PERIPHERAL_FREQMHZ {10.000000} \
 CONFIG.PCW_ACT_FPGA3_PERIPHERAL_FREQMHZ {10.000000} \
 CONFIG.PCW_ACT_PCAP_PERIPHERAL_FREQMHZ {200.000000} \
 CONFIG.PCW_ACT_QSPI_PERIPHERAL_FREQMHZ {200.000000} \
-CONFIG.PCW_ACT_SDIO_PERIPHERAL_FREQMHZ {10.000000} \
+CONFIG.PCW_ACT_SDIO_PERIPHERAL_FREQMHZ {50.000000} \
 CONFIG.PCW_ACT_SMC_PERIPHERAL_FREQMHZ {10.000000} \
 CONFIG.PCW_ACT_SPI_PERIPHERAL_FREQMHZ {10.000000} \
 CONFIG.PCW_ACT_TPIU_PERIPHERAL_FREQMHZ {200.000000} \
@@ -260,6 +258,7 @@ CONFIG.PCW_EN_EMIO_I2C0 {1} \
 CONFIG.PCW_EN_I2C0 {1} \
 CONFIG.PCW_EN_QSPI {1} \
 CONFIG.PCW_EN_RST0_PORT {0} \
+CONFIG.PCW_EN_SDIO0 {1} \
 CONFIG.PCW_EN_UART1 {1} \
 CONFIG.PCW_FCLK0_PERIPHERAL_CLKSRC {IO PLL} \
 CONFIG.PCW_FCLK0_PERIPHERAL_DIVISOR0 {1} \
@@ -521,8 +520,8 @@ CONFIG.PCW_MIO_9_DIRECTION {inout} \
 CONFIG.PCW_MIO_9_IOTYPE {LVCMOS 3.3V} \
 CONFIG.PCW_MIO_9_PULLUP {disabled} \
 CONFIG.PCW_MIO_9_SLEW {slow} \
-CONFIG.PCW_MIO_TREE_PERIPHERALS {GPIO#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#UART 1#UART 1#GPIO#GPIO#GPIO#GPIO} \
-CONFIG.PCW_MIO_TREE_SIGNALS {gpio[0]#qspi0_ss_b#qspi0_io[0]#qspi0_io[1]#qspi0_io[2]#qspi0_io[3]#qspi0_sclk#gpio[7]#gpio[8]#gpio[9]#gpio[10]#gpio[11]#gpio[12]#gpio[13]#gpio[14]#gpio[15]#gpio[16]#gpio[17]#gpio[18]#gpio[19]#gpio[20]#gpio[21]#gpio[22]#gpio[23]#gpio[24]#gpio[25]#gpio[26]#gpio[27]#gpio[28]#gpio[29]#gpio[30]#gpio[31]#gpio[32]#gpio[33]#gpio[34]#gpio[35]#gpio[36]#gpio[37]#gpio[38]#gpio[39]#gpio[40]#gpio[41]#gpio[42]#gpio[43]#gpio[44]#gpio[45]#gpio[46]#gpio[47]#tx#rx#gpio[50]#gpio[51]#gpio[52]#gpio[53]} \
+CONFIG.PCW_MIO_TREE_PERIPHERALS {GPIO#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#Quad SPI Flash#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#GPIO#SD 0#SD 0#SD 0#SD 0#SD 0#SD 0#SD 0#SD 0#UART 1#UART 1#GPIO#GPIO#GPIO#GPIO} \
+CONFIG.PCW_MIO_TREE_SIGNALS {gpio[0]#qspi0_ss_b#qspi0_io[0]#qspi0_io[1]#qspi0_io[2]#qspi0_io[3]#qspi0_sclk#gpio[7]#gpio[8]#gpio[9]#gpio[10]#gpio[11]#gpio[12]#gpio[13]#gpio[14]#gpio[15]#gpio[16]#gpio[17]#gpio[18]#gpio[19]#gpio[20]#gpio[21]#gpio[22]#gpio[23]#gpio[24]#gpio[25]#gpio[26]#gpio[27]#gpio[28]#gpio[29]#gpio[30]#gpio[31]#gpio[32]#gpio[33]#gpio[34]#gpio[35]#gpio[36]#gpio[37]#gpio[38]#gpio[39]#clk#cmd#data[0]#data[1]#data[2]#data[3]#wp#cd#tx#rx#gpio[50]#gpio[51]#gpio[52]#gpio[53]} \
 CONFIG.PCW_NAND_CYCLES_T_AR {1} \
 CONFIG.PCW_NAND_CYCLES_T_CLR {1} \
 CONFIG.PCW_NAND_CYCLES_T_RC {11} \
@@ -606,14 +605,14 @@ CONFIG.PCW_QSPI_PERIPHERAL_DIVISOR0 {8} \
 CONFIG.PCW_QSPI_PERIPHERAL_ENABLE {1} \
 CONFIG.PCW_QSPI_PERIPHERAL_FREQMHZ {200} \
 CONFIG.PCW_QSPI_QSPI_IO {MIO 1 .. 6} \
-CONFIG.PCW_SD0_GRP_CD_ENABLE {0} \
-CONFIG.PCW_SD0_GRP_CD_IO {<Select>} \
+CONFIG.PCW_SD0_GRP_CD_ENABLE {1} \
+CONFIG.PCW_SD0_GRP_CD_IO {MIO 47} \
 CONFIG.PCW_SD0_GRP_POW_ENABLE {0} \
 CONFIG.PCW_SD0_GRP_POW_IO {<Select>} \
-CONFIG.PCW_SD0_GRP_WP_ENABLE {0} \
-CONFIG.PCW_SD0_GRP_WP_IO {<Select>} \
-CONFIG.PCW_SD0_PERIPHERAL_ENABLE {0} \
-CONFIG.PCW_SD0_SD0_IO {<Select>} \
+CONFIG.PCW_SD0_GRP_WP_ENABLE {1} \
+CONFIG.PCW_SD0_GRP_WP_IO {MIO 46} \
+CONFIG.PCW_SD0_PERIPHERAL_ENABLE {1} \
+CONFIG.PCW_SD0_SD0_IO {MIO 40 .. 45} \
 CONFIG.PCW_SD1_GRP_CD_ENABLE {0} \
 CONFIG.PCW_SD1_GRP_CD_IO {<Select>} \
 CONFIG.PCW_SD1_GRP_POW_ENABLE {0} \
@@ -623,8 +622,9 @@ CONFIG.PCW_SD1_GRP_WP_IO {<Select>} \
 CONFIG.PCW_SD1_PERIPHERAL_ENABLE {0} \
 CONFIG.PCW_SD1_SD1_IO {<Select>} \
 CONFIG.PCW_SDIO_PERIPHERAL_CLKSRC {IO PLL} \
-CONFIG.PCW_SDIO_PERIPHERAL_DIVISOR0 {1} \
+CONFIG.PCW_SDIO_PERIPHERAL_DIVISOR0 {32} \
 CONFIG.PCW_SDIO_PERIPHERAL_FREQMHZ {50} \
+CONFIG.PCW_SDIO_PERIPHERAL_VALID {1} \
 CONFIG.PCW_SMC_PERIPHERAL_CLKSRC {IO PLL} \
 CONFIG.PCW_SMC_PERIPHERAL_DIVISOR0 {1} \
 CONFIG.PCW_SMC_PERIPHERAL_FREQMHZ {100} \
@@ -894,6 +894,7 @@ CONFIG.PCW_EN_EMIO_GPIO.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_EN_EMIO_I2C0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_EN_I2C0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_EN_QSPI.VALUE_SRC {DEFAULT} \
+CONFIG.PCW_EN_SDIO0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_EN_UART1.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_FCLK0_PERIPHERAL_CLKSRC.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_FCLK0_PERIPHERAL_DIVISOR0.VALUE_SRC {DEFAULT} \
@@ -1236,13 +1237,8 @@ CONFIG.PCW_QSPI_PERIPHERAL_DIVISOR0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_QSPI_PERIPHERAL_ENABLE.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_QSPI_PERIPHERAL_FREQMHZ.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_QSPI_QSPI_IO.VALUE_SRC {DEFAULT} \
-CONFIG.PCW_SD0_GRP_CD_ENABLE.VALUE_SRC {DEFAULT} \
-CONFIG.PCW_SD0_GRP_CD_IO.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SD0_GRP_POW_ENABLE.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SD0_GRP_POW_IO.VALUE_SRC {DEFAULT} \
-CONFIG.PCW_SD0_GRP_WP_ENABLE.VALUE_SRC {DEFAULT} \
-CONFIG.PCW_SD0_GRP_WP_IO.VALUE_SRC {DEFAULT} \
-CONFIG.PCW_SD0_SD0_IO.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SD1_GRP_CD_ENABLE.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SD1_GRP_CD_IO.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SD1_GRP_POW_ENABLE.VALUE_SRC {DEFAULT} \
@@ -1254,6 +1250,7 @@ CONFIG.PCW_SD1_SD1_IO.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SDIO_PERIPHERAL_CLKSRC.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SDIO_PERIPHERAL_DIVISOR0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SDIO_PERIPHERAL_FREQMHZ.VALUE_SRC {DEFAULT} \
+CONFIG.PCW_SDIO_PERIPHERAL_VALID.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SMC_PERIPHERAL_CLKSRC.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SMC_PERIPHERAL_DIVISOR0.VALUE_SRC {DEFAULT} \
 CONFIG.PCW_SMC_PERIPHERAL_FREQMHZ.VALUE_SRC {DEFAULT} \
@@ -1438,16 +1435,16 @@ CONFIG.PCW_WDT_WDT_IO.VALUE_SRC {DEFAULT} \
   regenerate_bd_layout -layout_string {
    guistr: "# # String gsaved with Nlview 6.6.5b  2016-09-06 bk=1.3687 VDI=39 GEI=35 GUI=JA:1.6
 #  -string -flagsOSRD
-preplace port DDR -pg 1 -y 10 -defaultsOSRD
-preplace port fmc_prsnt_m2c_l -pg 1 -y 30 -defaultsOSRD
-preplace port FIXED_IO -pg 1 -y 60 -defaultsOSRD
-preplace port fmc_iic -pg 1 -y 80 -defaultsOSRD
-preplace inst processing_system7_0 -pg 1 -lvl 1 -y 60 -defaultsOSRD
-preplace netloc processing_system7_0_DDR 1 1 1 230J
-preplace netloc processing_system7_0_IIC_0 1 1 1 230J
-preplace netloc processing_system7_0_FIXED_IO 1 1 1 230J
-preplace netloc processing_system7_0_GPIO_0 1 1 1 N
-levelinfo -pg 1 -20 110 270 -top -10 -bot 200
+preplace port DDR -pg 1 -y 60 -defaultsOSRD
+preplace port fmc_prsnt_m2c_l -pg 1 -y 40 -defaultsOSRD
+preplace port FIXED_IO -pg 1 -y 80 -defaultsOSRD
+preplace port fmc_iic -pg 1 -y 100 -defaultsOSRD
+preplace inst processing_system7_0 -pg 1 -lvl 1 -y 70 -defaultsOSRD
+preplace netloc processing_system7_0_DDR 1 1 1 NJ
+preplace netloc processing_system7_0_IIC_0 1 1 1 NJ
+preplace netloc processing_system7_0_FIXED_IO 1 1 1 NJ
+preplace netloc processing_system7_0_GPIO_0 1 1 1 NJ
+levelinfo -pg 1 0 130 270 -top 0 -bot 150
 ",
 }
 
